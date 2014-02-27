@@ -107,6 +107,10 @@ func! sneak#to(op, input, inputlen, count, repeatmotion, reverse, inclusive, str
     let s.match_pattern .= l:match_bounds
   endif
 
+  "TODO: refactor vertical scope calculation into search.vim,
+  "      so this can be done in s.init() instead of here.
+  call s.initpattern()
+
   if !a:repeatmotion "this is a new (not repeat) invocation
     "persist even if the search fails, because the _reverse_ direction might have a match.
     let s:st.rst = 0 | let s:st.input = a:input | let s:st.inputlen = a:inputlen | let s:st.op = a:op
@@ -116,6 +120,10 @@ func! sneak#to(op, input, inputlen, count, repeatmotion, reverse, inclusive, str
     call s:ft_hook()
   endif
 
+  if is_op && !sneak#util#isvisualop(a:op)
+    norm! v
+  endif
+
   for i in range(1, max([1, skip])) "jump to the [count]th match
     let matchpos = s.dosearch()
     if 0 == max(matchpos)
@@ -123,8 +131,14 @@ func! sneak#to(op, input, inputlen, count, repeatmotion, reverse, inclusive, str
     endif
   endfor
 
-  "if the user was in visual mode, extend the selection.
-  if sneak#util#isvisualop(a:op)
+  if 1 == a:inputlen && !a:inclusive
+    let ww_orig = &whichwrap
+    set whichwrap+=h,l
+    exec 'norm! ' a:reverse ? 'l' : 'h'
+    let &whichwrap = ww_orig
+  endif
+
+  if sneak#util#isvisualop(a:op) "user was in visual mode, extend the selection.
     norm! gv
     if max(matchpos) > 0 | call cursor(matchpos) | endif
   endif
